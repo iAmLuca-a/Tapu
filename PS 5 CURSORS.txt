@@ -1,134 +1,109 @@
--- ============================================================
--- PROBLEM STATEMENT 5
--- Cursors: Implicit, Explicit, Cursor FOR Loop, Parameterized
--- ============================================================
+experiment no 5 
 
--- ============================================================
--- CREATE TABLES
--- ============================================================
+-- ===================== TABLE CREATION =====================
 
+-- Drop tables if they already exist to avoid errors
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE O_RollCall';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN RAISE; END IF; -- ignore "table does not exist" error
+END;
+/
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE N_RollCall';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN RAISE; END IF;
+END;
+/
+
+-- Create tables
 CREATE TABLE O_RollCall (
-    roll_no NUMBER PRIMARY KEY,
-    name    VARCHAR2(50)
+    Roll_No NUMBER(10) PRIMARY KEY,
+    Name    VARCHAR2(50)
 );
 
 CREATE TABLE N_RollCall (
-    roll_no NUMBER PRIMARY KEY,
-    name    VARCHAR2(50)
+    Roll_No NUMBER(10) PRIMARY KEY,
+    Name    VARCHAR2(50)
 );
 
--- ============================================================
--- INSERT SAMPLE DATA
--- Roll 2 (Bob) exists in both => should be skipped during merge
--- Roll 3, 4 only in N_RollCall => should be inserted into O_RollCall
--- ============================================================
+-- ===================== INSERT DATA =====================
 
 INSERT INTO O_RollCall VALUES (1, 'Alice');
 INSERT INTO O_RollCall VALUES (2, 'Bob');
+INSERT INTO O_RollCall VALUES (3, 'Charlie');
 
 INSERT INTO N_RollCall VALUES (2, 'Bob');
-INSERT INTO N_RollCall VALUES (3, 'Charlie');
 INSERT INTO N_RollCall VALUES (4, 'Diana');
+INSERT INTO N_RollCall VALUES (5, 'Eve');
 
 COMMIT;
 
+-- ===================== ENABLE OUTPUT =====================
+
 SET SERVEROUTPUT ON;
 
--- ============================================================
--- 1. IMPLICIT CURSOR
--- Oracle creates this automatically for DML statements.
--- SQL%ROWCOUNT tells how many rows were affected.
--- ============================================================
+-- ===================== 1. IMPLICIT CURSOR (UPDATE NAMES TO UPPERCASE) =====================
 
 BEGIN
-    UPDATE O_RollCall SET name = UPPER(name);
-    DBMS_OUTPUT.PUT_LINE('Implicit Cursor: Rows updated = ' || SQL%ROWCOUNT);
-    COMMIT;
+    UPDATE O_RollCall
+    SET Name = UPPER(Name);
+
+    IF SQL%FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Implicit Cursor: ' || SQL%ROWCOUNT || ' rows updated.');
+    END IF;
 END;
 /
 
--- ============================================================
--- 2. EXPLICIT CURSOR
--- You manually control: OPEN -> FETCH -> EXIT WHEN -> CLOSE
--- Use %NOTFOUND to detect when no more rows are available.
--- ============================================================
+-- ===================== 2. EXPLICIT CURSOR (PRINT O_RollCall) =====================
 
 DECLARE
-    CURSOR c_old IS SELECT roll_no, name FROM O_RollCall;
-    v_roll O_RollCall.roll_no%TYPE;
-    v_name O_RollCall.name%TYPE;
+    CURSOR c_roll IS SELECT Roll_No, Name FROM O_RollCall ORDER BY Roll_No;
+    v_roll O_RollCall.Roll_No%TYPE;
+    v_name O_RollCall.Name%TYPE;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('--- Explicit Cursor Output ---');
-    OPEN c_old;
+    OPEN c_roll;
     LOOP
-        FETCH c_old INTO v_roll, v_name;
-        EXIT WHEN c_old%NOTFOUND;
-        DBMS_OUTPUT.PUT_LINE('Roll: ' || v_roll || ' | Name: ' || v_name);
+        FETCH c_roll INTO v_roll, v_name;
+        EXIT WHEN c_roll%NOTFOUND;
+        DBMS_OUTPUT.PUT_LINE('O_RollCall -> Roll: ' || v_roll || ', Name: ' || v_name);
     END LOOP;
-    CLOSE c_old;
+    CLOSE c_roll;
 END;
 /
 
--- ============================================================
--- 3. CURSOR FOR LOOP
--- Simplest cursor type. Oracle handles OPEN, FETCH, CLOSE.
--- Each iteration gives you a record variable automatically.
--- ============================================================
+-- ===================== 3. CURSOR FOR LOOP (PRINT N_RollCall) =====================
 
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('--- Cursor FOR Loop Output ---');
-    FOR rec IN (SELECT roll_no, name FROM N_RollCall) LOOP
-        DBMS_OUTPUT.PUT_LINE('Roll: ' || rec.roll_no || ' | Name: ' || rec.name);
+    FOR rec IN (SELECT Roll_No, Name FROM N_RollCall ORDER BY Roll_No) LOOP
+        DBMS_OUTPUT.PUT_LINE('N_RollCall -> Roll: ' || rec.Roll_No || ', Name: ' || rec.Name);
     END LOOP;
 END;
 /
 
--- ============================================================
--- 4. PARAMETERIZED CURSOR
--- Merge N_RollCall into O_RollCall.
--- Skip if roll_no already exists in O_RollCall.
--- Cursor accepts a parameter just like a function/procedure.
--- ============================================================
+-- ===================== 4. MERGE N_RollCall INTO O_RollCall =====================
 
-DECLARE
-    -- Parameterized cursor: filters N_RollCall by roll_no
-    CURSOR c_merge (p_roll NUMBER) IS
-        SELECT roll_no, name
-        FROM   N_RollCall
-        WHERE  roll_no = p_roll;
-
-    v_count  NUMBER;
-    v_roll   N_RollCall.roll_no%TYPE;
-    v_name   N_RollCall.name%TYPE;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('--- Parameterized Cursor: Merge Result ---');
-
-    -- Loop through all records in N_RollCall
-    FOR n_rec IN (SELECT roll_no, name FROM N_RollCall) LOOP
-
-        -- Check if roll already exists in O_RollCall
-        SELECT COUNT(*) INTO v_count
-        FROM   O_RollCall
-        WHERE  roll_no = n_rec.roll_no;
-
-        IF v_count = 0 THEN
-            -- Open parameterized cursor for this roll_no
-            OPEN c_merge(n_rec.roll_no);
-            FETCH c_merge INTO v_roll, v_name;
-
-            INSERT INTO O_RollCall VALUES (v_roll, v_name);
-            DBMS_OUTPUT.PUT_LINE('Inserted: ' || v_roll || ' - ' || v_name);
-
-            CLOSE c_merge;
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('Skipped (already exists): ' || n_rec.roll_no || ' - ' || n_rec.name);
-        END IF;
-    END LOOP;
+    MERGE INTO O_RollCall o
+    USING N_RollCall n
+    ON (o.Roll_No = n.Roll_No)
+    WHEN NOT MATCHED THEN
+        INSERT (Roll_No, Name)
+        VALUES (n.Roll_No, n.Name);
 
     COMMIT;
     DBMS_OUTPUT.PUT_LINE('Merge complete.');
 END;
 /
 
--- Verify final state of O_RollCall
-SELECT * FROM O_RollCall ORDER BY roll_no;
+-- ===================== 5. VERIFY FINAL O_RollCall =====================
+
+BEGIN
+    FOR rec IN (SELECT Roll_No, Name FROM O_RollCall ORDER BY Roll_No) LOOP
+        DBMS_OUTPUT.PUT_LINE('Final O_RollCall -> Roll: ' || rec.Roll_No || ', Name: ' || rec.Name);
+    END LOOP;
+END;
+/
