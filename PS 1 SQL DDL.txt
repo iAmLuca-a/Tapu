@@ -1,0 +1,130 @@
+experiment no.  1   SQL DDL
+
+-- ===================== TABLES =====================
+
+CREATE TABLE Person (
+    driver_id VARCHAR2(10) PRIMARY KEY,
+    name      VARCHAR2(50) NOT NULL,
+    address   VARCHAR2(100)
+);
+
+CREATE TABLE Car (
+    license VARCHAR2(15) PRIMARY KEY,
+    model   VARCHAR2(50),
+    year    NUMBER(4)
+);
+
+CREATE TABLE Accident (
+    report_no  NUMBER PRIMARY KEY,
+    date_acc   DATE,
+    location   VARCHAR2(100)
+);
+
+CREATE TABLE Owns (
+    driver_id VARCHAR2(10),
+    license   VARCHAR2(15),
+    PRIMARY KEY (driver_id, license),
+    FOREIGN KEY (driver_id) REFERENCES Person(driver_id),
+    FOREIGN KEY (license)   REFERENCES Car(license)
+);
+
+CREATE TABLE Participated (
+    driver_id     VARCHAR2(10),
+    license       VARCHAR2(15),
+    report_no     NUMBER,
+    damage_amount NUMBER(10,2),
+    PRIMARY KEY (driver_id, report_no),
+    FOREIGN KEY (driver_id) REFERENCES Person(driver_id),
+    FOREIGN KEY (license)   REFERENCES Car(license),
+    FOREIGN KEY (report_no) REFERENCES Accident(report_no)
+);
+
+-- ===================== EMPLOYEE DB =====================
+
+CREATE TABLE Employee (
+    employee_name VARCHAR2(50) PRIMARY KEY,
+    street        VARCHAR2(100),
+    city          VARCHAR2(50)
+);
+
+CREATE TABLE Company (
+    company_name VARCHAR2(50) PRIMARY KEY,
+    city         VARCHAR2(50)
+);
+
+CREATE TABLE Works (
+    employee_name VARCHAR2(50),
+    company_name  VARCHAR2(50),
+    salary        NUMBER(10,2),
+    PRIMARY KEY (employee_name, company_name),
+    FOREIGN KEY (employee_name) REFERENCES Employee(employee_name),
+    FOREIGN KEY (company_name)  REFERENCES Company(company_name)
+);
+
+CREATE TABLE Manages (
+    employee_name VARCHAR2(50),
+    manager_name  VARCHAR2(50),
+    PRIMARY KEY (employee_name),
+    FOREIGN KEY (employee_name) REFERENCES Employee(employee_name)
+);
+
+-- ===================== VIEW =====================
+
+CREATE VIEW Emp_Company_View AS
+SELECT e.employee_name, w.company_name
+FROM Employee e
+JOIN Works w ON e.employee_name = w.employee_name;
+
+-- ===================== INDEX =====================
+
+CREATE INDEX idx_employee ON Employee(employee_name);
+CREATE INDEX idx_participated ON Participated(driver_id, report_no);
+
+-- ===================== SEQUENCE =====================
+
+CREATE SEQUENCE person_seq
+START WITH 1
+INCREMENT BY 1
+NOCACHE
+NOCYCLE;
+
+-- ===================== INSERT DATA =====================
+
+-- Person
+INSERT INTO Person VALUES ('D' || person_seq.NEXTVAL, 'Alice',   '123 MG Road');
+INSERT INTO Person VALUES ('D' || person_seq.NEXTVAL, 'Bob',     '45 Park Street');
+INSERT INTO Person VALUES ('D' || person_seq.NEXTVAL, 'Charlie', '78 Lake View');
+INSERT INTO Person VALUES ('D' || person_seq.NEXTVAL, 'Diana',   '22 Hill Top');
+
+-- Car
+INSERT INTO Car VALUES ('MH01AB1234', 'Honda City', 2020);
+INSERT INTO Car VALUES ('MH02CD5678', 'Hyundai i20', 2019);
+
+-- Accident
+INSERT INTO Accident VALUES (1, SYSDATE, 'Pune');
+INSERT INTO Accident VALUES (2, SYSDATE, 'Mumbai');
+
+-- Participated (NOW VALID)
+INSERT INTO Participated VALUES ('D1', 'MH01AB1234', 1, 3000);
+INSERT INTO Participated VALUES ('D2', 'MH02CD5678', 2, 4000);
+
+-- Company
+INSERT INTO Company VALUES ('TechCorp', 'Mumbai');
+INSERT INTO Company VALUES ('InfoSys',  'Pune');
+
+-- ===================== SYNONYM =====================
+
+CREATE SYNONYM part_syn FOR Participated;
+CREATE SYNONYM comp_syn FOR Company;
+
+-- ===================== OPERATIONS =====================
+
+-- Update using synonym
+UPDATE comp_syn SET city = 'Bangalore' WHERE company_name = 'TechCorp';
+UPDATE part_syn SET damage_amount = 5000 WHERE report_no = 1;
+
+-- Display results
+SELECT * FROM comp_syn;
+SELECT * FROM part_syn;
+
+COMMIT;
