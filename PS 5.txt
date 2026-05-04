@@ -1,0 +1,109 @@
+experiment no 5 
+
+-- ===================== TABLE CREATION =====================
+
+-- Drop tables if they already exist to avoid errors
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE O_RollCall';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN RAISE; END IF; -- ignore "table does not exist" error
+END;
+/
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE N_RollCall';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN RAISE; END IF;
+END;
+/
+
+-- Create tables
+CREATE TABLE O_RollCall (
+    Roll_No NUMBER(10) PRIMARY KEY,
+    Name    VARCHAR2(50)
+);
+
+CREATE TABLE N_RollCall (
+    Roll_No NUMBER(10) PRIMARY KEY,
+    Name    VARCHAR2(50)
+);
+
+-- ===================== INSERT DATA =====================
+
+INSERT INTO O_RollCall VALUES (1, 'Alice');
+INSERT INTO O_RollCall VALUES (2, 'Bob');
+INSERT INTO O_RollCall VALUES (3, 'Charlie');
+
+INSERT INTO N_RollCall VALUES (2, 'Bob');
+INSERT INTO N_RollCall VALUES (4, 'Diana');
+INSERT INTO N_RollCall VALUES (5, 'Eve');
+
+COMMIT;
+
+-- ===================== ENABLE OUTPUT =====================
+
+SET SERVEROUTPUT ON;
+
+-- ===================== 1. IMPLICIT CURSOR (UPDATE NAMES TO UPPERCASE) =====================
+
+BEGIN
+    UPDATE O_RollCall
+    SET Name = UPPER(Name);
+
+    IF SQL%FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Implicit Cursor: ' || SQL%ROWCOUNT || ' rows updated.');
+    END IF;
+END;
+/
+
+-- ===================== 2. EXPLICIT CURSOR (PRINT O_RollCall) =====================
+
+DECLARE
+    CURSOR c_roll IS SELECT Roll_No, Name FROM O_RollCall ORDER BY Roll_No;
+    v_roll O_RollCall.Roll_No%TYPE;
+    v_name O_RollCall.Name%TYPE;
+BEGIN
+    OPEN c_roll;
+    LOOP
+        FETCH c_roll INTO v_roll, v_name;
+        EXIT WHEN c_roll%NOTFOUND;
+        DBMS_OUTPUT.PUT_LINE('O_RollCall -> Roll: ' || v_roll || ', Name: ' || v_name);
+    END LOOP;
+    CLOSE c_roll;
+END;
+/
+
+-- ===================== 3. CURSOR FOR LOOP (PRINT N_RollCall) =====================
+
+BEGIN
+    FOR rec IN (SELECT Roll_No, Name FROM N_RollCall ORDER BY Roll_No) LOOP
+        DBMS_OUTPUT.PUT_LINE('N_RollCall -> Roll: ' || rec.Roll_No || ', Name: ' || rec.Name);
+    END LOOP;
+END;
+/
+
+-- ===================== 4. MERGE N_RollCall INTO O_RollCall =====================
+
+BEGIN
+    MERGE INTO O_RollCall o
+    USING N_RollCall n
+    ON (o.Roll_No = n.Roll_No)
+    WHEN NOT MATCHED THEN
+        INSERT (Roll_No, Name)
+        VALUES (n.Roll_No, n.Name);
+
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Merge complete.');
+END;
+/
+
+-- ===================== 5. VERIFY FINAL O_RollCall =====================
+
+BEGIN
+    FOR rec IN (SELECT Roll_No, Name FROM O_RollCall ORDER BY Roll_No) LOOP
+        DBMS_OUTPUT.PUT_LINE('Final O_RollCall -> Roll: ' || rec.Roll_No || ', Name: ' || rec.Name);
+    END LOOP;
+END;
+/
