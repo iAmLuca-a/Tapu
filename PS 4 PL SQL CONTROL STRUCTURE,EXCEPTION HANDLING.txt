@@ -1,95 +1,104 @@
-experiment no 4
+-- ============================================================
+-- PROBLEM STATEMENT 4
+-- Unnamed PL/SQL Block: Control Structures + Exception Handling
+-- Schema: Borrower, Fine
+-- ============================================================
 
+-- ============================================================
+-- CREATE TABLES
+-- ============================================================
 
--- Enable output
-SET SERVEROUTPUT ON;
-
--- Drop tables if already exist (optional)
-DROP TABLE Fine;
-DROP TABLE Borrower;
-
--- Create Borrower table
 CREATE TABLE Borrower (
-    Rollin      NUMBER(10)   PRIMARY KEY,
-    Name        VARCHAR2(50) NOT NULL,
-    DateofIssue DATE         NOT NULL,
-    NameofBook  VARCHAR2(100) NOT NULL,
-    Status      CHAR(1) DEFAULT 'I' CHECK (Status IN ('I','R'))
+    Rollin      NUMBER PRIMARY KEY,
+    Name        VARCHAR2(50),
+    DateofIssue DATE,
+    NameofBook  VARCHAR2(100),
+    Status      CHAR(1) DEFAULT 'I'  -- I = Issued, R = Returned
 );
 
--- Create Fine table
 CREATE TABLE Fine (
-    Roll_no NUMBER(10),
-    Date_   DATE,
-    Amt     NUMBER(10,2),
-    CONSTRAINT fk_roll FOREIGN KEY (Roll_no) REFERENCES Borrower(Rollin)
+    Roll_no  NUMBER,
+    FineDate DATE,
+    Amt      NUMBER(10,2)
 );
 
--- Sample data
-INSERT INTO Borrower VALUES (101, 'Ravi',  TO_DATE('01-APR-2025','DD-MON-YYYY'), 'DBMS', 'I');
-INSERT INTO Borrower VALUES (102, 'Priya', TO_DATE('10-MAR-2025','DD-MON-YYYY'), 'OS Concepts', 'I');
+-- ============================================================
+-- INSERT TEST RECORDS
+-- Adjust SYSDATE offset to test different fine scenarios:
+--   SYSDATE - 40  => > 30 days  (Rs.5 for 30 + Rs.50 for remaining)
+--   SYSDATE - 20  => 15-30 days (Rs.5/day)
+--   SYSDATE - 10  => < 15 days  (No fine)
+-- ============================================================
+
+INSERT INTO Borrower VALUES (1, 'Arnav', SYSDATE - 40, 'DBMS Concepts', 'I');
+INSERT INTO Borrower VALUES (2, 'Rohit', SYSDATE - 20, 'OS Principles',  'I');
+INSERT INTO Borrower VALUES (3, 'Priya', SYSDATE - 10, 'CN Tanenbaum',   'I');
+
 COMMIT;
 
--- ===================== PL/SQL BLOCK =====================
+-- ============================================================
+-- PL/SQL BLOCK
+-- &roll_no and &book_name prompt the user at runtime in Oracle
+-- ============================================================
+
+SET SERVEROUTPUT ON;
 
 DECLARE
-    v_roll     Borrower.Rollin%TYPE := &v_roll;
-    v_book     Borrower.NameofBook%TYPE := '&v_book';
-    v_doi      Borrower.DateofIssue%TYPE;
-    v_days     NUMBER;
-    v_fine_amt NUMBER := 0;
+    v_roll   NUMBER        := &roll_no;
+    v_book   VARCHAR2(100) := '&book_name';
+    v_doi    DATE;
+    v_days   NUMBER;
+    v_fine   NUMBER := 0;
 BEGIN
-    -- Fetch borrower record
+    -- Fetch date of issue for the given roll and book
     SELECT DateofIssue INTO v_doi
-    FROM Borrower
-    WHERE Rollin = v_roll 
-      AND NameofBook = v_book 
-      AND Status = 'I';
+    FROM   Borrower
+    WHERE  Rollin = v_roll
+      AND  NameofBook = v_book
+      AND  Status = 'I';
 
     -- Calculate number of days since issue
     v_days := TRUNC(SYSDATE - v_doi);
     DBMS_OUTPUT.PUT_LINE('Days since issue: ' || v_days);
 
-    -- Fine calculation
+    -- Fine logic:
+    --   15 to 30 days => Rs. 5 per day
+    --   > 30 days     => Rs. 5 for first 30 + Rs. 50 for each day beyond 30
+    --   < 15 days     => No fine
     IF v_days BETWEEN 15 AND 30 THEN
-        v_fine_amt := v_days * 5;
-        DBMS_OUTPUT.PUT_LINE('Fine (Rs 5/day): Rs ' || v_fine_amt);
+        v_fine := v_days * 5;
+        DBMS_OUTPUT.PUT_LINE('Fine: Rs.5/day x ' || v_days || ' days');
 
     ELSIF v_days > 30 THEN
-        v_fine_amt := (30 * 5) + ((v_days - 30) * 50);
-        DBMS_OUTPUT.PUT_LINE('Fine (30 days @Rs5 + extra @Rs50): Rs ' || v_fine_amt);
+        v_fine := (30 * 5) + ((v_days - 30) * 50);
+        DBMS_OUTPUT.PUT_LINE('Fine: Rs.150 (first 30 days) + Rs.50/day for remaining ' || (v_days - 30) || ' days');
 
     ELSE
-        DBMS_OUTPUT.PUT_LINE('No fine applicable (within 15 days).');
+        DBMS_OUTPUT.PUT_LINE('Days < 15. No fine applicable.');
     END IF;
 
-    -- Update status
+    -- Update status to R (Returned)
     UPDATE Borrower
-    SET Status = 'R'
-    WHERE Rollin = v_roll 
-      AND NameofBook = v_book;
+    SET    Status = 'R'
+    WHERE  Rollin = v_roll AND NameofBook = v_book;
 
-    IF SQL%ROWCOUNT = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('WARNING: No record updated.');
-    ELSE
-        DBMS_OUTPUT.PUT_LINE('Book return status updated to R.');
+    -- Insert into Fine table only if fine > 0
+    IF v_fine > 0 THEN
+        INSERT INTO Fine VALUES (v_roll, SYSDATE, v_fine);
+        DBMS_OUTPUT.PUT_LINE('Fine Amount: Rs. ' || v_fine);
     END IF;
 
-    -- Insert fine if applicable
-    IF v_fine_amt > 0 THEN
-        INSERT INTO Fine (Roll_no, Date_, Amt)
-        VALUES (v_roll, SYSDATE, v_fine_amt);
-
-        DBMS_OUTPUT.PUT_LINE('Fine record inserted.');
-    END IF;
-
+    DBMS_OUTPUT.PUT_LINE('Book returned successfully. Status updated to R.');
     COMMIT;
 
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        DBMS_OUTPUT.PUT_LINE('ERROR: No issued book found for given Roll No and Book Name.');
+        DBMS_OUTPUT.PUT_LINE('ERROR: Book not found or already returned for Roll No: ' || v_roll);
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('ERROR: ' || SQLERRM);
-        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('UNEXPECTED ERROR: ' || SQLERRM);
 END;
 /
+
+-- Verify results
+SELECT * FROM Borrower;
+SELECT * FROM Fine;
