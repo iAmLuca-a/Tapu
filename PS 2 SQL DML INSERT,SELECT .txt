@@ -1,126 +1,103 @@
-experiment no 2
+-- ============================================================
+-- PROBLEM STATEMENT 2
+-- DML: Insert, Select, Update, Delete with Operators & Functions
+-- ============================================================
 
-
--- ===================== CLEANUP (AVOID ERRORS) =====================
-
-DROP TABLE Emp CASCADE CONSTRAINTS;
-DROP TABLE Department CASCADE CONSTRAINTS;
-
-
--- ===================== TABLE CREATION =====================
+-- ============================================================
+-- CREATE TABLES
+-- ============================================================
 
 CREATE TABLE Department (
-    Deptno   NUMBER(4) PRIMARY KEY,
+    Deptno   NUMBER PRIMARY KEY,
     Dname    VARCHAR2(20) NOT NULL,
     Location VARCHAR2(20)
 );
 
 CREATE TABLE Emp (
-    Empno       NUMBER(4)    PRIMARY KEY,
+    Empno       NUMBER PRIMARY KEY,
     Ename       VARCHAR2(30) NOT NULL,
     Job         VARCHAR2(15),
-    Mgr         NUMBER(4),
+    Mgr         NUMBER,
     Joined_date DATE,
     Salary      NUMBER(10,2),
     Commission  NUMBER(10,2),
-    Deptno      NUMBER(4),
+    Deptno      NUMBER,
     Address     VARCHAR2(50),
-    CONSTRAINT fk_dept FOREIGN KEY (Deptno)
-        REFERENCES Department(Deptno)
+    FOREIGN KEY (Deptno) REFERENCES Department(Deptno)
 );
 
-
--- ===================== INSERT DATA =====================
+-- ============================================================
+-- INSERT RECORDS
+-- ============================================================
 
 INSERT INTO Department VALUES (10, 'Accounting', 'Mumbai');
 INSERT INTO Department VALUES (20, 'Research',   'Pune');
-INSERT INTO Department VALUES (30, 'Sales',      'Nashik');
-INSERT INTO Department VALUES (40, 'Operations', 'Nagpur');
+INSERT INTO Department VALUES (30, 'Sales',       'Nashik');
+INSERT INTO Department VALUES (40, 'Operations',  'Nagpur');
 
-
-INSERT INTO Emp VALUES (1001,'Nilesh Joshi','Clerk',1005,
-TO_DATE('17-DEC-1995','DD-MON-YYYY'),2800,600,20,'Nashik');
-
-INSERT INTO Emp VALUES (1002,'Avinash Pawar','Salesman',1003,
-TO_DATE('20-FEB-1996','DD-MON-YYYY'),5000,1200,30,'Nagpur');
-
-INSERT INTO Emp VALUES (1003,'Amit Kumar','Manager',1004,
-TO_DATE('02-APR-1986','DD-MON-YYYY'),2000,NULL,30,'Pune');
-
-INSERT INTO Emp VALUES (1004,'Nitin Kulkarni','President',NULL,
-TO_DATE('19-APR-1986','DD-MON-YYYY'),50000,NULL,10,'Mumbai');
-
-INSERT INTO Emp VALUES (1005,'Niraj Sharma','Analyst',1003,
-TO_DATE('03-DEC-1998','DD-MON-YYYY'),12000,NULL,20,'Satara');
-
-INSERT INTO Emp VALUES (1006,'Pushkar Deshpande','Salesman',1003,
-TO_DATE('01-SEP-1996','DD-MON-YYYY'),6500,1500,30,'Pune');
-
-INSERT INTO Emp VALUES (1007,'Sumit Patil','Manager',1004,
-TO_DATE('01-MAY-1991','DD-MON-YYYY'),25000,NULL,20,'Mumbai');
-
-INSERT INTO Emp VALUES (1008,'Ravi Sawant','Analyst',1007,
-TO_DATE('17-NOV-1995','DD-MON-YYYY'),10000,NULL,NULL,'Amaravati');
-
+INSERT INTO Emp VALUES (1001,'Nilesh Joshi',     'Clerk',     1005, TO_DATE('17-DEC-95','DD-MON-YY'), 2800,  600,  20, 'Nashik');
+INSERT INTO Emp VALUES (1002,'Avinash Pawar',    'Salesman',  1003, TO_DATE('20-FEB-96','DD-MON-YY'), 5000,  1200, 30, 'Nagpur');
+INSERT INTO Emp VALUES (1003,'Amit Kumar',       'Manager',   1004, TO_DATE('02-APR-86','DD-MON-YY'), 2000,  NULL, 30, 'Pune');
+INSERT INTO Emp VALUES (1004,'Nitin Kulkarni',   'President', NULL, TO_DATE('19-APR-86','DD-MON-YY'), 50000, NULL, 10, 'Mumbai');
+INSERT INTO Emp VALUES (1005,'Niraj Sharma',     'Analyst',   1003, TO_DATE('03-DEC-98','DD-MON-YY'), 12000, NULL, 20, 'Satara');
+INSERT INTO Emp VALUES (1006,'Pushkar Deshpande','Salesman',  1003, TO_DATE('01-SEP-96','DD-MON-YY'), 6500,  1500, 30, 'Pune');
+INSERT INTO Emp VALUES (1007,'Sumit Patil',      'Manager',   1004, TO_DATE('01-MAY-91','DD-MON-YY'), 25000, NULL, 20, 'Mumbai');
+INSERT INTO Emp VALUES (1008,'Ravi Sawant',      'Analyst',   1007, TO_DATE('17-NOV-95','DD-MON-YY'), 10000, NULL, NULL,'Amaravati');
 
 COMMIT;
 
+-- ============================================================
+-- QUERIES
+-- ============================================================
 
--- ===================== QUERIES =====================
+-- Q1: Display employee information with explicit column aliases
+SELECT Empno       AS "Employee No",
+       Ename       AS "Employee Name",
+       Job         AS "Job",
+       Mgr         AS "Manager",
+       Joined_date AS "Date Joined",
+       Salary      AS "Salary",
+       Commission  AS "Commission",
+       Deptno      AS "Dept No",
+       Address     AS "Address"
+FROM   Emp;
 
--- Q1
-SELECT Empno AS "Employee Number",
-       Ename AS "Employee Name",
-       Job   AS "Designation",
-       Mgr   AS "Manager ID",
-       Joined_date AS "Date of Joining",
-       Salary,
-       Commission,
-       Deptno,
-       Address
-FROM Emp;
-
--- Q2
+-- Q2: Display unique/distinct jobs
 SELECT DISTINCT Job FROM Emp;
 
--- Q3
-UPDATE Department
-SET Location = 'Bangalore'
-WHERE Deptno = 40;
-
--- Q4
-UPDATE Emp
-SET Ename = 'Nikhil Gosavi'
-WHERE Empno = 1003;
-
--- Q5
-DELETE FROM Emp
-WHERE Empno = 1006;
-
--- Q6
-SELECT * FROM Emp WHERE Deptno = 10 OR Deptno = 20;
-SELECT * FROM Emp WHERE Deptno IN (10, 20);
-
--- Q7
-SELECT Ename, Deptno
-FROM Emp
-WHERE Deptno IN (10, 20, 30, 40);
-
--- Q8
-SELECT Ename, Salary, Commission
-FROM Emp
-WHERE Salary > 5000 AND Commission IS NOT NULL;
-
--- Q9
-SELECT Ename, Joined_date
-FROM Emp
-WHERE Joined_date < TO_DATE('01-JAN-1990', 'DD-MON-YYYY');
-
--- Q10
-SELECT Deptno, MAX(Salary) AS Max_Salary
-FROM Emp
-GROUP BY Deptno
-HAVING MAX(Salary) > 5000;
-
-
+-- Q3: Change location of dept 40 from Nagpur to Bangalore
+-- FIX: Corrected spelling from 'Banglore' to 'Bangalore'
+UPDATE Department SET Location = 'Bangalore' WHERE Deptno = 40;
 COMMIT;
+
+-- Q4: Change name of employee 1003 to Nikhil Gosavi
+UPDATE Emp SET Ename = 'Nikhil Gosavi' WHERE Empno = 1003;
+COMMIT;
+
+-- Q5: Delete Pushkar Deshpande from employee table
+DELETE FROM Emp WHERE Ename = 'Pushkar Deshpande';
+COMMIT;
+
+-- Q6: Display Clerks and Salesmen using OR and IN operators
+-- Using OR:
+SELECT * FROM Emp WHERE Job = 'Clerk' OR Job = 'Salesman';
+
+-- Using IN (same result, cleaner syntax):
+SELECT * FROM Emp WHERE Job IN ('Clerk', 'Salesman');
+
+-- Q7: Employee name and department number for dept 10, 20, 30, 40
+SELECT Ename, Deptno FROM Emp WHERE Deptno IN (10, 20, 30, 40);
+
+-- Q8: Display employees with salary greater than 5000
+SELECT Ename, Salary FROM Emp WHERE Salary > 5000;
+
+-- Q9: Find all employees with NULL commission
+-- NOTE: Cannot use = NULL in SQL; must use IS NULL
+SELECT Ename FROM Emp WHERE Commission IS NULL;
+
+-- Q10: Department number and MAX salary where max salary > 5000
+-- GROUP BY groups rows per dept, HAVING filters after grouping
+SELECT   Deptno, MAX(Salary) AS "Max Salary"
+FROM     Emp
+GROUP BY Deptno
+HAVING   MAX(Salary) > 5000;
